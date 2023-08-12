@@ -1,8 +1,9 @@
 import java.util.*;
+import java.util.concurrent.*;
 
 public class Main {
 
-   public static void main(String[] args) throws InterruptedException {
+   public static void main(String[] args) throws InterruptedException, ExecutionException {
       String[] texts = new String[25];
       for (int i = 0; i < texts.length; i++) {
          texts[i] = generateText("aab", 30_000);
@@ -11,26 +12,29 @@ public class Main {
       long startTs = System.currentTimeMillis(); // start time
 
       //my code
-      List<Thread> threads = new ArrayList<>();
+      final ExecutorService threadPool = Executors.newFixedThreadPool(texts.length);
+      List<Future> futures = new ArrayList<>();
       for (int i = 0; i < texts.length; i++) {
          int finalI = i;
-         Runnable logic = () -> processString(texts[finalI]);
-         Thread thread = new Thread(logic);
-         threads.add(thread);
+         final Callable logic = () -> getMaxSize(texts[finalI]);
+         final Future task = threadPool.submit(logic);
+         futures.add(task);
       }
-      for (Thread thr : threads) {
-         thr.start();
+
+      int max = 0;
+      for (Future f : futures) {
+         if ((int) f.get() > max) {
+            max = (int) f.get();
+         }
       }
-      //добавленный join
-      for (Thread thread : threads) {
-         thread.join();
-      }
+      System.out.println("Результат (макс. интервал): " + max);
+      threadPool.shutdown();
 
       long endTs = System.currentTimeMillis(); // end time
       System.out.println("Time: " + (endTs - startTs) + " ms");
    }
 
-   public static void processString(String text) {
+   public static int getMaxSize(String text) {
       int maxSize = 0;
       for (int i = 0; i < text.length(); i++) {
          for (int j = 0; j < text.length(); j++) {
@@ -49,7 +53,7 @@ public class Main {
             }
          }
       }
-      System.out.println(text.substring(0, 100) + " -> " + maxSize);
+      return maxSize;
    }
 
    public static String generateText(String letters, int length) {
